@@ -2,7 +2,7 @@ package csvparser
 
 sealed trait CSVParserError extends RuntimeException
 import Result.Result
-import cats.data.ValidatedNel
+import cats.data.{ValidatedNel, Validated}
 import csvparser.CSVParser.CSVContent
 
 case class Id[A](value: Int) extends AnyVal
@@ -30,17 +30,42 @@ object Result {
     Left(error)
 }
 
-
 object CSVParser {
   type CSVContent = Seq[Map[String, String]]
 
-  def parse(source: String): Result[CSVContent] = ???
+  def parse(source: String): Result[CSVContent] = {
+    val csv = source.split("\n") match {
+      case Array(headers, body @ _*) => {
+        body.map(
+          b =>
+            headers
+              .split(",")
+              .zipWithIndex
+              .map(t => (t._1, b.split(",")(t._2)))
+              .toMap)
+      }
+    }
+    Result.success(csv)
+  }
 }
 
 object UserParser {
   sealed trait UserParseError
-
   type ValidationResult[A] = ValidatedNel[UserParseError, A]
+  def strToRole(role: String): UserRole = {
+    role match {
+      case "Developer"     => Developer
+      case "Administrator" => Administrator
+      case "Guest" =>
+        Guest
+      // case _ => invalid
+    }
+  }
 
-  def fromCSV(content: CSVContent): ValidationResult[Seq[User]] = ???
+  def fromCSV(content: CSVContent): ValidationResult[Seq[User]] = {
+    Validated.valid(content.map(c => {
+      new User(Id(c("id").toInt), c("name"), c("project"), strToRole(c("role")))
+    }))
+
+  }
 }
